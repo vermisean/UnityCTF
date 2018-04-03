@@ -60,6 +60,7 @@ GameObject:
   - component: {fileID: 23595795398513824}
   - component: {fileID: 54742778821866690}
   - component: {fileID: 114532913621914746}
+  - component: {fileID: 114842214272145158}
   m_Layer: 0
   m_Name: SpawnGuy
   m_TagString: Player
@@ -509,6 +510,39 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   linearSpeed: 5
   angularSpeed: 5
+  hasFlag: 0
+--- !u!114 &114842214272145158
+MonoBehaviour:
+  m_ObjectHideFlags: 1
+  m_PrefabParentObject: {fileID: 0}
+  m_PrefabInternal: {fileID: 100100000}
+  m_GameObject: {fileID: 1415409049158330}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 372142912, guid: dc443db3e92b4983b9738c1131f555cb, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  m_SceneId:
+    m_Value: 0
+  m_AssetId:
+    i0: 250
+    i1: 223
+    i2: 145
+    i3: 18
+    i4: 241
+    i5: 69
+    i6: 255
+    i7: 228
+    i8: 91
+    i9: 127
+    i10: 219
+    i11: 219
+    i12: 2
+    i13: 78
+    i14: 220
+    i15: 138
+  m_ServerOnly: 0
+  m_LocalPlayerAuthority: 1
 --- !u!135 &135051101266442802
 SphereCollider:
   m_ObjectHideFlags: 1
