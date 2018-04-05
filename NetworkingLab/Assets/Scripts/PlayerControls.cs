@@ -10,9 +10,9 @@ public class PlayerControls : NetworkBehaviour
 	public bool hasFlag;
 
 	// Networking
-	public float updateTransformLatency = 0.5f;				// how often to send packets
-	private float currentUpdateTransformLatency = 0.0f;		// 
-	NetworkClient myClient;
+	//public float updateTransformLatency = 0.5f;				// how often to send packets
+	//private float currentUpdateTransformLatency = 0.0f;		// 
+	//NetworkClient myClient;
 
 	private Rigidbody rb = null;
 
@@ -21,13 +21,13 @@ public class PlayerControls : NetworkBehaviour
 		rb = GetComponent<Rigidbody> ();
 		hasFlag = false;
 
-		if(!isLocalPlayer)
+/*		if(!isLocalPlayer)
 		{
 			return;
 		}
 
 		myClient = NetworkManager.singleton.client;
-		myClient.RegisterHandler (CustomMsgType.Transform, OnTransformReceived);
+		myClient.RegisterHandler (CustomMsgType.Transform, OnTransformReceived);*/
 	}
 
 	void FixedUpdate()
@@ -53,7 +53,7 @@ public class PlayerControls : NetworkBehaviour
 		Vector3 angularVelocity = this.transform.up * (rotationalInput * angularSpeed);
 		rb.angularVelocity = angularVelocity;
 
-		currentUpdateTransformLatency += Time.deltaTime;
+/*		currentUpdateTransformLatency += Time.deltaTime;
 
 		if(currentUpdateTransformLatency >= updateTransformLatency)
 		{
@@ -62,7 +62,7 @@ public class PlayerControls : NetworkBehaviour
 			msg.rotation = this.transform.rotation;
 			NetworkServer.SendToAll (CustomMsgType.Transform, msg);
 			currentUpdateTransformLatency = 0.0f;
-		}
+		}*/
 	}
 
 	void DropFlag()
@@ -73,16 +73,16 @@ public class PlayerControls : NetworkBehaviour
 			GameObject flag = GameObject.FindWithTag("Flag");
 			Rigidbody flag_rb = flag.GetComponent<Rigidbody> ();
 			//flag_rb.isKinematic = false;
-			flag_rb.AddForce (Vector3.up * 20.0f);
+			flag_rb.AddForce (Vector3.up * 200.0f);
 			flag.GetComponentInChildren<FlagScript> ().isTaken = false;
 			flag.transform.parent = null;			
-			flag.transform.localScale *= 2.0f;
+			//flag.transform.localScale *= 2.0f;
 
 			//flag.transform = flag.GetComponent<FlagScript> ().flagTransform;
 		}
 	}
 
-	public override void OnStartAuthority()
+	/*public override void OnStartAuthority()
 	{
 		base.OnStartAuthority ();
 	}
@@ -97,7 +97,7 @@ public class PlayerControls : NetworkBehaviour
 		base.OnStartLocalPlayer ();
 		this.GetComponent<MeshRenderer> ().material.color = Color.cyan;
 
-		myClient.UnregisterHandler (CustomMsgType.Transform);
+		//myClient.UnregisterHandler (CustomMsgType.Transform);
 	}
 
 	public override void OnStartServer()
@@ -128,5 +128,5 @@ public class PlayerControls : NetworkBehaviour
 		this.transform.position = msg.position;
 		this.transform.rotation = msg.rotation;
 		//this.transform.localScale = msg.scale;
-	}
+	}*/
 }

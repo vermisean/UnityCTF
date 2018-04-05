@@ -25,26 +25,29 @@ public class TransformUpdate : NetworkBehaviour
 	public override void OnStartAuthority()
 	{
 		base.OnStartAuthority ();
-		Debug.Log ("Started OnStartAuthority");
+		//Debug.Log ("Started OnStartAuthority");
+
 	}
 
 	public override void OnStartClient()
 	{
 		base.OnStartClient ();
-		Debug.Log ("Started OnStartClient");
+		//Debug.Log ("Started OnStartClient");
+
 	}
 
 	public override void OnStartLocalPlayer()
 	{
 		base.OnStartLocalPlayer ();
-		Debug.Log ("Started OnStartLocalPlayer");
-		this.GetComponent<MeshRenderer> ().material.color = Color.cyan;
+		//Debug.Log ("Started OnStartLocalPlayer");
+
 	}
 
 	public override void OnStartServer()
 	{
 		base.OnStartServer ();
-		Debug.Log ("Started OnStartServer");
+		//Debug.Log ("Started OnStartServer");
+
 	}
 
 	//Packets
@@ -65,7 +68,7 @@ public class TransformUpdate : NetworkBehaviour
 		TransformMessage msg = netMsg.ReadMessage<TransformMessage> ();
 		Debug.Log ("On Transform Received! isLocalPlayer: " + isLocalPlayer);
 		// Dont want local player getting this - should have a check (assert below)
-		Debug.Assert (!isLocalPlayer);
+		//Debug.Assert (!isLocalPlayer);
 
 		this.transform.position = msg.position;
 		this.transform.rotation = msg.rotation;
