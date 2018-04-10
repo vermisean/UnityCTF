@@ -38,6 +38,8 @@ public class PlayerControls : NetworkBehaviour
 		}
 
 		Move ();
+		if(Input.GetKeyDown(KeyCode.Space))
+			CmdJump ();
 		DropFlag ();
 	}
 
@@ -48,21 +50,31 @@ public class PlayerControls : NetworkBehaviour
 
 		Vector3 forwardVector = this.transform.forward;
 		Vector3 linearVelocity = this.transform.forward * (forwardInput * linearSpeed);
+		float yVelocity = rb.velocity.y;
+		linearVelocity.y = yVelocity;
 		rb.velocity = linearVelocity;
 
 		Vector3 angularVelocity = this.transform.up * (rotationalInput * angularSpeed);
 		rb.angularVelocity = angularVelocity;
+	}
+		
+	public void Jump()
+	{
+		Vector3 jumpVelocity = Vector3.up * 5.0f;
+		rb.velocity += jumpVelocity;
+	}
 
-/*		currentUpdateTransformLatency += Time.deltaTime;
+	[ClientRpc]
+	public void RpcJump()
+	{
+		Jump ();
+	}
 
-		if(currentUpdateTransformLatency >= updateTransformLatency)
-		{
-			TransformMessage msg = new TransformMessage ();
-			msg.position = this.transform.position;
-			msg.rotation = this.transform.rotation;
-			NetworkServer.SendToAll (CustomMsgType.Transform, msg);
-			currentUpdateTransformLatency = 0.0f;
-		}*/
+	[Command]
+	public void CmdJump()
+	{
+		Jump ();
+		RpcJump ();
 	}
 
 	void DropFlag()
@@ -71,62 +83,15 @@ public class PlayerControls : NetworkBehaviour
 		{
 			hasFlag = false;
 			GameObject flag = GameObject.FindWithTag("Flag");
+
 			Rigidbody flag_rb = flag.GetComponent<Rigidbody> ();
 			//flag_rb.isKinematic = false;
 			flag_rb.AddForce (Vector3.up * 200.0f);
 			flag.GetComponentInChildren<FlagScript> ().isTaken = false;
 			flag.transform.parent = null;			
 			//flag.transform.localScale *= 2.0f;
-
 			//flag.transform = flag.GetComponent<FlagScript> ().flagTransform;
+
 		}
 	}
-
-	/*public override void OnStartAuthority()
-	{
-		base.OnStartAuthority ();
-	}
-
-	public override void OnStartClient()
-	{
-		base.OnStartClient ();
-	}
-
-	public override void OnStartLocalPlayer()
-	{
-		base.OnStartLocalPlayer ();
-		this.GetComponent<MeshRenderer> ().material.color = Color.cyan;
-
-		//myClient.UnregisterHandler (CustomMsgType.Transform);
-	}
-
-	public override void OnStartServer()
-	{
-		base.OnStartServer ();
-	}
-
-	//Packets
-	public class CustomMsgType
-	{
-		public static short Transform = MsgType.Highest + 1;
-	}
-
-	public class TransformMessage : MessageBase
-	{
-		public Vector3 position;
-		public Quaternion rotation;
-		//public Vector3 scale;
-	}
-
-	public void OnTransformReceived(NetworkMessage netMsg)
-	{
-		TransformMessage msg = netMsg.ReadMessage<TransformMessage> ();
-		Debug.Log ("On Transform Received! isLocalPlayer: " + isLocalPlayer);
-		// Dont want local player getting this - should have a check (assert below)
-		//Debug.Assert (!isLocalPlayer);
-
-		this.transform.position = msg.position;
-		this.transform.rotation = msg.rotation;
-		//this.transform.localScale = msg.scale;
-	}*/
 }
