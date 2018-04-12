@@ -143,3 +143,6 @@ c2275a8bfbb9f9942cad75ecdfded41d UnityEngine.HoloLens.dll:UnityEngine.XR.WSA.Spa
 45f3431f0103c41611e8d4eec3d439df UnityEngine.HoloLens.dll:UnityEngine.XR.WSA.SpatialMappingRenderer
 05524b8f659e7bfe5756d1335fec24ba UnityEngine.HoloLens.dll:UnityEngine.EventSystems.HoloLensInput
 463516d5b5fe8e67a0a24c48f2095b04 UnityEngine.HoloLens.dll:UnityEngine.EventSystems.HoloLensInputModule
+05524b8f659e7bfe5756d1335fec24ba Assembly-CSharp.dll:.NetworkMessageHandler
+28a4ee8f0559c744f5d2c147ffd7aa0f Assembly-CSharp.dll:.NetworkPlayer
+05524b8f659e7bfe5756d1335fec24ba Assembly-CSharp.dll:.NetworkServerRelay

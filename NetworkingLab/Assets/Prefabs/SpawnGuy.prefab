@@ -62,6 +62,7 @@ GameObject:
   - component: {fileID: 114532913621914746}
   - component: {fileID: 114842214272145158}
   - component: {fileID: 114116912160395294}
+  - component: {fileID: 114144443471980492}
   m_Layer: 0
   m_Name: SpawnGuy
   m_TagString: Player
@@ -504,19 +505,46 @@ MonoBehaviour:
   m_PrefabParentObject: {fileID: 0}
   m_PrefabInternal: {fileID: 100100000}
   m_GameObject: {fileID: 1415409049158330}
-  m_Enabled: 1
+  m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 92ba172186f4e784897a81c8c3c7b765, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
   updateTransformLatency: 0.5
---- !u!114 &114532913621914746
+--- !u!114 &114144443471980492
 MonoBehaviour:
   m_ObjectHideFlags: 1
   m_PrefabParentObject: {fileID: 0}
   m_PrefabInternal: {fileID: 100100000}
   m_GameObject: {fileID: 1415409049158330}
   m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 82193b3e0c7a8ca458565634dd6bd18e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  playerID: 
+  canSendNetworkMovement: 0
+  networkSendRate: 10
+  timeBetweenMovementStart: 0
+  timeBetweenMovementEnd: 0
+  linearSpeed: 5
+  angularSpeed: 5
+  isLerpingPos: 0
+  isLerpingRot: 0
+  realPos: {x: 0, y: 0, z: 0}
+  realRot: {x: 0, y: 0, z: 0, w: 0}
+  lastRealPos: {x: 0, y: 0, z: 0}
+  lastRealRot: {x: 0, y: 0, z: 0, w: 0}
+  timeStartedLerp: 0
+  timeToLerp: 0
+  hasFlag: 0
+--- !u!114 &114532913621914746
+MonoBehaviour:
+  m_ObjectHideFlags: 1
+  m_PrefabParentObject: {fileID: 0}
+  m_PrefabInternal: {fileID: 100100000}
+  m_GameObject: {fileID: 1415409049158330}
+  m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 0880a380d71a2b049a7247e6396c653c, type: 3}
   m_Name: 
@@ -555,7 +583,7 @@ MonoBehaviour:
     i14: 220
     i15: 138
   m_ServerOnly: 0
-  m_LocalPlayerAuthority: 1
+  m_LocalPlayerAuthority: 0
 --- !u!135 &135051101266442802
 SphereCollider:
   m_ObjectHideFlags: 1
