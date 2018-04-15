@@ -17,10 +17,16 @@ public class NetworkPlayer : NetworkMessageHandler
 	public Slider fuelSlider = null;
 	public ParticleSystem jetpackParticles = null;
 	public bool isThrusting = false;
-	public bool isPowerUp = false;
-	public bool isFlagPowerUp = false;
+	public bool isFuelPowerUp = false;
+	public bool isSpeedPowerUp = false;
+	public Camera cam;
+	public bool isFacingLeft = true;
 
-	private float timeStamp;
+	[Header("Bullet Properties")]
+	public GameObject bulletPrefab;
+	public Transform bulletSpawn;
+	public float bulletSpeed = 8.0f;
+
 
 	[Header("Transform Update Properties")]
 	public bool canSendNetworkMovement;
@@ -46,6 +52,7 @@ public class NetworkPlayer : NetworkMessageHandler
 	public bool hasFlag;
 
 
+	private float timeStamp;
 	private Rigidbody rb = null;
 
 	private void Start()
@@ -53,8 +60,10 @@ public class NetworkPlayer : NetworkMessageHandler
 		playerID = "player" + GetComponent<NetworkIdentity>().netId.ToString();
 		transform.name = playerID;
 		Manager.Instance.AddPlayerToConnectedPlayers(playerID, gameObject);
+
 		jetpackParticles = GetComponentInChildren<ParticleSystem> ();
 		rb = GetComponent<Rigidbody> ();
+		cam = FindObjectOfType<Camera> ();
 
 		fuelSlider = GameObject.FindGameObjectWithTag ("fuelSlider").GetComponent<Slider>();
 		fuelSlider.value = playerFuel;
@@ -161,27 +170,48 @@ public class NetworkPlayer : NetworkMessageHandler
 	{
 		if(isLocalPlayer)
 		{
-			if(isPowerUp)
+			if(isFuelPowerUp)
 			{
-				StartCoroutine (PowerUp());
+				StartCoroutine (FuelPowerUp());
 			}
 
-			if(isFlagPowerUp)
+			if(isSpeedPowerUp)
 			{
-				StartCoroutine (FlagPowerUp());
+				StartCoroutine (SpeedPowerUp());
 			}
 
 			UpdatePlayerMovement();
 			Jump ();
+			Shoot ();
 			RechargeJetPack ();
 			fuelSlider.value = playerFuel;
+
+
+			Vector3 mPos = Input.mousePosition;
+
+			if(mPos.x > Screen.width / 2.0f && isFacingLeft)
+			{
+				isFacingLeft = false;
+				Quaternion newRot = new Quaternion (transform.rotation.x, -transform.rotation.y, transform.rotation.z, transform.rotation.w);
+				rb.rotation = newRot;
+			}
+			else if(mPos.x < Screen.width / 2.0f && !isFacingLeft)
+			{
+				isFacingLeft = true;
+				Quaternion newRot = new Quaternion (transform.rotation.x, -transform.rotation.y, transform.rotation.z, transform.rotation.w);
+				rb.rotation = newRot;
+			}
+
+		
 		}
 		else
 		{
 			if(rb.velocity.y > 0.0f)
 			{
 				if(jetpackParticles.isStopped)
+				{
 					jetpackParticles.Play ();
+				}
 			}
 			else
 			{
@@ -194,29 +224,29 @@ public class NetworkPlayer : NetworkMessageHandler
 
 	private void UpdatePlayerMovement()
 	{
-		//float rotationalInput = Input.GetAxis ("Horizontal");
-		float forwardInput = Input.GetAxis ("Vertical");
-
-		Vector3 forwardVector = this.transform.forward;
-		Vector3 linearVelocity = this.transform.forward * (forwardInput * linearSpeed);
-		float yVelocity = rb.velocity.y;
-		linearVelocity.y = yVelocity;
-		rb.velocity = linearVelocity;
-
-		if(Input.GetKey(KeyCode.A))
+		if(!isFacingLeft)
 		{
-			// go Left
+			float forwardInput = Input.GetAxis ("Horizontal");
 
+			Vector3 forwardVector = this.transform.forward;
+			Vector3 linearVelocity = this.transform.forward * (forwardInput * linearSpeed);
+
+			float yVelocity = rb.velocity.y;
+			linearVelocity.y = yVelocity;
+			rb.velocity = linearVelocity;
+		}
+		else
+		{
+			float forwardInput = Input.GetAxis ("Horizontal");
+
+			Vector3 forwardVector = -this.transform.forward;
+			Vector3 linearVelocity = -this.transform.forward * (forwardInput * linearSpeed);
+
+			float yVelocity = rb.velocity.y;
+			linearVelocity.y = yVelocity;
+			rb.velocity = linearVelocity;
 		}
 
-		if(Input.GetKey(KeyCode.D))
-		{
-			// go Right
-
-		}
-
-		//Vector3 angularVelocity = this.transform.up * (rotationalInput * angularSpeed);
-		//rb.angularVelocity = angularVelocity;
 
 		if (!canSendNetworkMovement)
 		{
@@ -230,7 +260,9 @@ public class NetworkPlayer : NetworkMessageHandler
 		if(Input.GetKey(KeyCode.Space) && playerFuel > 5)
 		{
 			if(jetpackParticles.isStopped)
-				jetpackParticles.Play ();
+			{
+				jetpackParticles.Play ();		
+			}
 			Vector3 jumpVelocity = Vector3.up * jetpackSpeed;
 			rb.velocity += jumpVelocity;
 			playerFuel -= 3;
@@ -242,32 +274,59 @@ public class NetworkPlayer : NetworkMessageHandler
 		}
 	}
 
+	public void Shoot()
+	{
+		if (Input.GetMouseButtonDown(0))
+		{
+			CmdFire();
+		}
+	}
+
+	[Command]
+	void CmdFire()
+	{
+		// Create the Bullet from the Bullet Prefab
+		var bullet = (GameObject)Instantiate (
+			bulletPrefab,
+			bulletSpawn.position,
+			bulletSpawn.rotation);
+
+		// Add velocity to the bullet
+		bullet.GetComponent<Rigidbody>().velocity = bullet.transform.forward * bulletSpeed;
+
+		// Spawn bullet
+		NetworkServer.Spawn(bullet);
+
+		// Destroy the bullet after 2 seconds
+		Destroy(bullet, 5.0f);
+	}
+
 	public void RechargeJetPack()
 	{
 		if(playerFuel < 100 && Time.time > timeStamp + jetpackCoolDown)
 			playerFuel += 2;
 	}
 
-	private IEnumerator PowerUp()
+	private IEnumerator FuelPowerUp()
 	{
-		Debug.Log ("powerup begins for: " + this.name);
+		//Debug.Log ("fuel powerup begins for: " + this.name);
 		this.jetpackCoolDown = 0.5f;
 		//fuelSlider.colors.normalColor = Color.blue;
 		yield return new WaitForSeconds (10.0f);
-		isPowerUp = false;
+		isFuelPowerUp = false;
 		this.jetpackCoolDown = 1.5f;
 		//fuelSlider.GetComponent<
-		Debug.Log ("powerup ends for: " + this.name);
+		//Debug.Log ("fuel powerup ends for: " + this.name);
 	}
 
-	private IEnumerator FlagPowerUp()
+	private IEnumerator SpeedPowerUp()
 	{
-		Debug.Log ("flag powerup begins for: " + this.name);
+		//Debug.Log ("speed powerup begins for: " + this.name);
 		this.linearSpeed = 20.0f;
 		yield return new WaitForSeconds (10.0f);
-		isFlagPowerUp = false;
+		isSpeedPowerUp = false;
 		this.linearSpeed = 10.0f;
-		Debug.Log ("flag powerup ends for: " + this.name);
+		//Debug.Log ("speed powerup ends for: " + this.name);
 	}
 
 	// Ensures the movement is sent at appropriate times
