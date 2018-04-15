@@ -14,16 +14,25 @@ public class NetworkServerRelay : NetworkMessageHandler
 		}
 	}
 
-	// Registers the movement message
+	// Registers the movement and flagPos messages
 	private void RegisterNetworkMessages()	
 	{
 		NetworkServer.RegisterHandler(movement_msg, OnReceivePlayerMovementMessage);
+		NetworkServer.RegisterHandler(flagPos_msg, OnReceivePlayerMovementMessage);
 	}
 
-	// Makes the movement smooth, sends to all clients
+	// Makes the player movement smooth, sends to all clients
 	private void OnReceivePlayerMovementMessage(NetworkMessage _message)
 	{
 		PlayerMovementMessage _msg = _message.ReadMessage<PlayerMovementMessage>();
 		NetworkServer.SendToAll(movement_msg, _msg);
 	}
+
+	// Makes the flag movement smooth, sends to all clients
+	private void OnReceiveFlagMovementMessage(NetworkMessage _message)
+	{
+		FlagMovementMessage _msg = _message.ReadMessage<FlagMovementMessage>();
+		NetworkServer.SendToAll(flagPos_msg, _msg);
+	}
+
 }

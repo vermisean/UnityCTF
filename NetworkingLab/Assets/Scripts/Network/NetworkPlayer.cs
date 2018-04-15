@@ -1,6 +1,7 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.UI;
 using UnityEngine.Networking;
 using UnityEngine.Networking.NetworkSystem;
 using PlayerManager;
@@ -9,6 +10,17 @@ public class NetworkPlayer : NetworkMessageHandler
 {
 	[Header("Player Properties")]
 	public string playerID;
+	public int playerFuel = 100;
+	public int maxPlayerFuel = 100;
+	public float jetpackSpeed = 1.5f;
+	public float jetpackCoolDown = 1.5f;
+	public Slider fuelSlider = null;
+	public ParticleSystem jetpackParticles = null;
+	public bool isThrusting = false;
+	public bool isPowerUp = false;
+	public bool isFlagPowerUp = false;
+
+	private float timeStamp;
 
 	[Header("Transform Update Properties")]
 	public bool canSendNetworkMovement;
@@ -17,7 +29,7 @@ public class NetworkPlayer : NetworkMessageHandler
 	public float timeBetweenMovementEnd;
 
 	[Header("Player Physics Properties")]
-	public float linearSpeed = 5.0f;
+	public float linearSpeed = 10.0f;
 	public float angularSpeed = 5.0f;
 
 	[Header("Lerping Properties")]
@@ -41,8 +53,11 @@ public class NetworkPlayer : NetworkMessageHandler
 		playerID = "player" + GetComponent<NetworkIdentity>().netId.ToString();
 		transform.name = playerID;
 		Manager.Instance.AddPlayerToConnectedPlayers(playerID, gameObject);
-
+		jetpackParticles = GetComponentInChildren<ParticleSystem> ();
 		rb = GetComponent<Rigidbody> ();
+
+		fuelSlider = GameObject.FindGameObjectWithTag ("fuelSlider").GetComponent<Slider>();
+		fuelSlider.value = playerFuel;
 
 		if (isLocalPlayer)
 		{
@@ -65,6 +80,7 @@ public class NetworkPlayer : NetworkMessageHandler
 	private void RegisterNetworkMessages()
 	{
 		NetworkManager.singleton.client.RegisterHandler(movement_msg, OnReceiveMovementMessage);
+		NetworkManager.singleton.client.RegisterHandler(flagPos_msg, OnReceiveFlagMovementMessage);
 	}
 
 	private void OnReceiveMovementMessage(NetworkMessage _message)
@@ -74,6 +90,16 @@ public class NetworkPlayer : NetworkMessageHandler
 		if (_msg.objectTransformName != transform.name)
 		{
 			Manager.Instance.ConnectedPlayers[_msg.objectTransformName].GetComponent<NetworkPlayer>().ReceiveMovementMessage(_msg.objectPosition, _msg.objectRotation, _msg.time);
+		}
+	}
+
+	private void OnReceiveFlagMovementMessage(NetworkMessage _message)
+	{
+		FlagMovementMessage _msg = _message.ReadMessage<FlagMovementMessage>();
+
+		if (_msg.flagOwnerName != transform.name) 
+		{
+			Manager.Instance.ConnectedPlayers [_msg.flagOwnerName].GetComponent<NetworkPlayer> ().ReceiveFlagMovementMessage (_msg.flagPosition, _msg.flagRotation, _msg.time);
 		}
 	}
 
@@ -104,22 +130,71 @@ public class NetworkPlayer : NetworkMessageHandler
 		timeStartedLerp = Time.time;
 	}
 
+	// Set positions, if positions are not equal, start lerping
+	public void ReceiveFlagMovementMessage(Vector3 _pos, Quaternion _rot, float _timeToLerp)
+	{
+		lastRealPos = realPos;
+		lastRealRot = realRot;
+
+		// We want to lerp from last known real pos/rot to movement message's new pos/rot
+		realPos = _pos;
+		realRot = _rot;
+
+		// Makes it look smoother with exact numbers
+		timeToLerp = _timeToLerp;
+
+		if(realPos != transform.position)
+		{
+			isLerpingPos = true;
+		}
+
+		// Eulers are better for Unity to compare
+		if(realRot.eulerAngles != transform.rotation.eulerAngles)
+		{
+			isLerpingRot = true;
+		}
+
+		timeStartedLerp = Time.time;
+	}
+
 	private void Update()
 	{
 		if(isLocalPlayer)
 		{
+			if(isPowerUp)
+			{
+				StartCoroutine (PowerUp());
+			}
+
+			if(isFlagPowerUp)
+			{
+				StartCoroutine (FlagPowerUp());
+			}
+
 			UpdatePlayerMovement();
 			Jump ();
+			RechargeJetPack ();
+			fuelSlider.value = playerFuel;
 		}
 		else
 		{
+			if(rb.velocity.y > 0.0f)
+			{
+				if(jetpackParticles.isStopped)
+					jetpackParticles.Play ();
+			}
+			else
+			{
+				jetpackParticles.Stop ();
+			}
+
 			return;
 		}
 	}
 
 	private void UpdatePlayerMovement()
 	{
-		float rotationalInput = Input.GetAxis ("Horizontal");
+		//float rotationalInput = Input.GetAxis ("Horizontal");
 		float forwardInput = Input.GetAxis ("Vertical");
 
 		Vector3 forwardVector = this.transform.forward;
@@ -128,8 +203,20 @@ public class NetworkPlayer : NetworkMessageHandler
 		linearVelocity.y = yVelocity;
 		rb.velocity = linearVelocity;
 
-		Vector3 angularVelocity = this.transform.up * (rotationalInput * angularSpeed);
-		rb.angularVelocity = angularVelocity;
+		if(Input.GetKey(KeyCode.A))
+		{
+			// go Left
+
+		}
+
+		if(Input.GetKey(KeyCode.D))
+		{
+			// go Right
+
+		}
+
+		//Vector3 angularVelocity = this.transform.up * (rotationalInput * angularSpeed);
+		//rb.angularVelocity = angularVelocity;
 
 		if (!canSendNetworkMovement)
 		{
@@ -140,11 +227,47 @@ public class NetworkPlayer : NetworkMessageHandler
 
 	public void Jump()
 	{
-		if(Input.GetKey(KeyCode.Space))
+		if(Input.GetKey(KeyCode.Space) && playerFuel > 5)
 		{
-			Vector3 jumpVelocity = Vector3.up * 5.0f;
+			if(jetpackParticles.isStopped)
+				jetpackParticles.Play ();
+			Vector3 jumpVelocity = Vector3.up * jetpackSpeed;
 			rb.velocity += jumpVelocity;
+			playerFuel -= 3;
+			timeStamp = Time.time + jetpackCoolDown;
 		}
+		else
+		{
+			jetpackParticles.Stop ();
+		}
+	}
+
+	public void RechargeJetPack()
+	{
+		if(playerFuel < 100 && Time.time > timeStamp + jetpackCoolDown)
+			playerFuel += 2;
+	}
+
+	private IEnumerator PowerUp()
+	{
+		Debug.Log ("powerup begins for: " + this.name);
+		this.jetpackCoolDown = 0.5f;
+		//fuelSlider.colors.normalColor = Color.blue;
+		yield return new WaitForSeconds (10.0f);
+		isPowerUp = false;
+		this.jetpackCoolDown = 1.5f;
+		//fuelSlider.GetComponent<
+		Debug.Log ("powerup ends for: " + this.name);
+	}
+
+	private IEnumerator FlagPowerUp()
+	{
+		Debug.Log ("flag powerup begins for: " + this.name);
+		this.linearSpeed = 20.0f;
+		yield return new WaitForSeconds (10.0f);
+		isFlagPowerUp = false;
+		this.linearSpeed = 10.0f;
+		Debug.Log ("flag powerup ends for: " + this.name);
 	}
 
 	// Ensures the movement is sent at appropriate times
