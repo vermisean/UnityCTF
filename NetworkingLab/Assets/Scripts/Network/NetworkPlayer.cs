@@ -187,6 +187,10 @@ public class NetworkPlayer : NetworkMessageHandler
 			RechargeJetPack ();
 			fuelSlider.value = playerFuel;
 
+			if(Input.GetKeyDown(KeyCode.F))
+			{
+				DropFlag ();
+			}
 
 			Vector3 mPos = Input.mousePosition;
 
@@ -281,6 +285,7 @@ public class NetworkPlayer : NetworkMessageHandler
 		{
 			CmdFire();
 		}
+
 	}
 
 	[Command]
@@ -300,6 +305,21 @@ public class NetworkPlayer : NetworkMessageHandler
 
 		// Destroy the bullet after 2 seconds
 		Destroy(bullet, 5.0f);
+	}
+
+
+	public void DropFlag()		/// TODO: This does not replicate properly!
+	{
+		if(hasFlag)
+		{
+			Debug.Log ("Dropped flag");
+			GameObject flag = GameObject.FindGameObjectWithTag ("Flag");
+			flag.transform.parent = null;
+
+			//flag.GetComponent<Rigidbody> ().isKinematic = false;
+			flag.transform.position += new Vector3 (0.0f, 10.0f, 0.0f);
+			flag.GetComponent<FlagScript> ().flagState = FlagScript.FlagState.Available;
+		}
 	}
 
 	public void RechargeJetPack()

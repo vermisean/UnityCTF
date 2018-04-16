@@ -61,7 +61,9 @@ public class FlagScript : NetworkMessageHandler
 			isTaken = true;
 			flagState = FlagState.Captured;
 			particleSys.Stop ();
+			//this.GetComponent<Rigidbody> ().isKinematic = true;
 			this.transform.parent = col.gameObject.transform;
+			col.GetComponent<NetworkPlayer> ().hasFlag = true;
 			flagOwnerName = this.transform.parent.name;
 			this.transform.localPosition = Vector3.zero;
 			this.transform.localRotation = Quaternion.identity;
