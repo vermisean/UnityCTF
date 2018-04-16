@@ -13,6 +13,7 @@ public class FlagScript : NetworkMessageHandler
 
 	[Header("Flag Properties")]
 	public string flagOwnerName;
+	[SyncVar]
 	public FlagState flagState;
 	public bool isTaken = false;
 	public ParticleSystem particleSys = null;
@@ -53,6 +54,7 @@ public class FlagScript : NetworkMessageHandler
 	}
 
 	void OnTriggerEnter(Collider col)
+	//local authority and visible - should be disabled while flag in possession
 	{
 		if(col.gameObject.tag == "Player" && flagState == FlagState.Available)
 		{

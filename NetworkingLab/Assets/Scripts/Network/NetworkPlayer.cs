@@ -10,6 +10,7 @@ public class NetworkPlayer : NetworkMessageHandler
 {
 	[Header("Player Properties")]
 	public string playerID;
+	public string playerName;
 	public int playerFuel = 100;
 	public int maxPlayerFuel = 100;
 	public float jetpackSpeed = 1.5f;
@@ -206,7 +207,7 @@ public class NetworkPlayer : NetworkMessageHandler
 		}
 		else
 		{
-			if(rb.velocity.y > 0.0f)
+			if(rb.velocity.y > Mathf.Epsilon)
 			{
 				if(jetpackParticles.isStopped)
 				{
@@ -229,7 +230,7 @@ public class NetworkPlayer : NetworkMessageHandler
 			float forwardInput = Input.GetAxis ("Horizontal");
 
 			Vector3 forwardVector = this.transform.forward;
-			Vector3 linearVelocity = this.transform.forward * (forwardInput * linearSpeed);
+			Vector3 linearVelocity = forwardVector * (forwardInput * linearSpeed);
 
 			float yVelocity = rb.velocity.y;
 			linearVelocity.y = yVelocity;
