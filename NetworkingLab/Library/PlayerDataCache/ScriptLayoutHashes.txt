@@ -149,3 +149,4 @@ ba68827cdf303e946a331d83684a08a3 Assembly-CSharp.dll:.GameTimer
 dd9fddc01b4f77bca325480afc200b19 Assembly-CSharp.dll:.NetworkPlayer
 17d5b80573e18461d5079f46b6d0ddf0 Assembly-CSharp.dll:.PolyWater
 05524b8f659e7bfe5756d1335fec24ba Assembly-CSharp.dll:.NetworkMessageHandler
+05524b8f659e7bfe5756d1335fec24ba Assembly-CSharp.dll:.BulletScript

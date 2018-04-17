@@ -97,5 +97,15 @@ TODO:
 - Respawn flag after falling
 - Knock flag out of player hands with shot
 - 
+- Call an rpc on onclientconnect - use firas' github for this
 
+- TIMER
+- RPC when all clients are connected to start the countdown. This is called after 2-3 commands are sent from the players, then:
+- You could have the server give the signal to start the timer, 
+	along with a DateTime. Instead of starting the timer at the same time as the message,
+	give the clients a DateTime occurring a few seconds after the message is sent.
+	That way the clients won't start the timer as soon as they get the message,
+	allowing for those with lag to 'catch up.' (e.g. The signal is sent at 7:00:00 AM, 
+	containing the time 7:00:05. As the clients recieve the message, 
+	they wait to start the timer until 7:00:05, so all the timers can start at the same time.)
 */

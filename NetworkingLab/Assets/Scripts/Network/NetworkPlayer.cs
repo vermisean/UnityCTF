@@ -182,7 +182,15 @@ public class NetworkPlayer : NetworkMessageHandler
 			}
 
 			UpdatePlayerMovement();
-			Jump ();
+
+			//if(!isServer)
+			//{
+				CmdJump ();		
+			//}
+			//else
+			//{
+			//	RpcJump ();
+			//}
 			Shoot ();
 			RechargeJetPack ();
 			fuelSlider.value = playerFuel;
@@ -211,7 +219,7 @@ public class NetworkPlayer : NetworkMessageHandler
 		}
 		else
 		{
-			if(rb.velocity.y > Mathf.Epsilon)
+/*			if(rb.velocity.y > Mathf.Epsilon)
 			{
 				if(jetpackParticles.isStopped)
 				{
@@ -221,7 +229,7 @@ public class NetworkPlayer : NetworkMessageHandler
 			else
 			{
 				jetpackParticles.Stop ();
-			}
+			}*/
 
 			return;
 		}
@@ -260,7 +268,14 @@ public class NetworkPlayer : NetworkMessageHandler
 		}
 	}
 
-	public void Jump()
+/*	[RPC]
+	public void RpcJump()
+	{
+		CmdJump ();
+	}*/
+
+	//[Command]
+	public void CmdJump()
 	{
 		if(Input.GetKey(KeyCode.Space) && playerFuel > 5)
 		{
@@ -308,7 +323,7 @@ public class NetworkPlayer : NetworkMessageHandler
 	}
 
 
-	public void DropFlag()		/// TODO: This does not replicate properly!
+	public void DropFlag()		// TODO: This does not replicate properly!
 	{
 		if(hasFlag)
 		{
@@ -328,7 +343,7 @@ public class NetworkPlayer : NetworkMessageHandler
 			playerFuel += 2;
 	}
 
-	private IEnumerator FuelPowerUp()
+	private IEnumerator FuelPowerUp()			// TODO: use a text label to tell all players about this
 	{
 		//Debug.Log ("fuel powerup begins for: " + this.name);
 		this.jetpackCoolDown = 0.5f;
@@ -340,7 +355,7 @@ public class NetworkPlayer : NetworkMessageHandler
 		//Debug.Log ("fuel powerup ends for: " + this.name);
 	}
 
-	private IEnumerator SpeedPowerUp()
+	private IEnumerator SpeedPowerUp()			// TODO: use a text label to tell all players about this
 	{
 		//Debug.Log ("speed powerup begins for: " + this.name);
 		this.linearSpeed = 20.0f;
