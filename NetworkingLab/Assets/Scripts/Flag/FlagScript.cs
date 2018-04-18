@@ -13,6 +13,7 @@ public class FlagScript : NetworkMessageHandler
 
 	[Header("Flag Properties")]
 	public string flagOwnerName;
+	public Transform startTransform;
 	[SyncVar]
 	public FlagState flagState;
 	public bool isTaken = false;
@@ -51,6 +52,38 @@ public class FlagScript : NetworkMessageHandler
 			canSendNetworkMovement = true;
 			StartCoroutine(StartNetworkSendCooldown());
 		}*/
+
+		if(flagState == FlagState.Available)
+		{
+			if(!particleSys.isStopped)
+			{
+				return;
+			}
+			else
+			{
+				particleSys.Play ();
+			}
+		}
+		else
+		{
+			if(particleSys.isStopped)
+			{
+				return;
+			}
+			else
+			{
+				particleSys.Stop ();
+			}
+		}
+	}
+
+	public void RespawnFlag()
+	{
+		this.transform.parent = null;
+		this.transform.position = startTransform.position;
+		this.transform.rotation = startTransform.rotation;
+		isTaken = false;
+		flagState = FlagState.Available;
 	}
 
 	void OnTriggerEnter(Collider col)
@@ -60,13 +93,18 @@ public class FlagScript : NetworkMessageHandler
 		{
 			isTaken = true;
 			flagState = FlagState.Captured;
-			particleSys.Stop ();
+
 			//this.GetComponent<Rigidbody> ().isKinematic = true;
 			this.transform.parent = col.gameObject.transform;
 			col.GetComponent<NetworkPlayer> ().hasFlag = true;
 			flagOwnerName = this.transform.parent.name;
-			this.transform.localPosition = Vector3.zero;
-			this.transform.localRotation = Quaternion.identity;
+			this.transform.localPosition = this.transform.parent.position + new Vector3 (0.0f, -25.0f, -1.0f);	// parent transform is wacky
+		}
+
+		if(col.gameObject.tag == "Respawn")
+		{
+			Debug.Log ("Respawning flag");
+			RespawnFlag ();
 		}
 	}
 

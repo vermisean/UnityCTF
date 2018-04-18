@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Networking;
+using UnityEngine.UI;
 
 public class GameManager : NetworkBehaviour 
 {
@@ -19,6 +20,12 @@ public class GameManager : NetworkBehaviour
 	public Transform flagSpawn;
 	public bool isSpawningFlag;
 
+	[Header("Game Time")]
+	public Text timeText;
+	public float gameTime = 360.0f;
+	public bool isGameStarted = false;			//TODO stop players from moving til this is thrown
+	public bool isGameOver = false;
+
 	public override void OnStartServer()
 	{
 		isSpawningPowerup = true;
@@ -33,22 +40,40 @@ public class GameManager : NetworkBehaviour
 		SpawnFlag ();
 	}
 
+	void Start()
+	{
+		timeText.text = gameTime.ToString ("000");
+		isGameStarted = true;
+	}
+
 	void Update()
 	{
-		CheckForPowerups ();
+		if (numPowerups < totalPowerups && !isSpawningPowerup)
+		{
+			CheckForPowerups ();
+		}
+
+		if(gameTime > 0 && isGameStarted && !isGameOver)			//TODO sync this with everyone else
+		{
+			gameTime -= Time.deltaTime;
+			timeText.text = gameTime.ToString ("000");
+		}
+		else if (gameTime <= 0)
+		{
+			timeText.text = "000";
+			isGameOver = true;
+		}
 	}
 
 	void CheckForPowerups()
 	{
-		if(numPowerups < totalPowerups && !isSpawningPowerup)
-		{
-			isSpawningPowerup = true;
-			StartCoroutine ("SpawnCooldown");
-		}
+		isSpawningPowerup = true;
+		StartCoroutine ("SpawnCooldown");
 	}
 
 	void SpawnPowerup()
 	{
+		numPowerups++;
 		int randomSpawnLocation = (int)Random.Range (0, powerupSpawns.Length);
 		int randomPowerup = (int)Random.Range (0, 2);
 		GameObject powerupPrefab;
@@ -66,7 +91,7 @@ public class GameManager : NetworkBehaviour
 			break;
 		}
 
-		numPowerups++;
+
 		GameObject powerup = Instantiate (powerupPrefab, powerupSpawns [randomSpawnLocation].position, powerupSpawns [randomSpawnLocation].rotation);
 		NetworkServer.Spawn (powerup);
 	}
@@ -96,7 +121,7 @@ TODO:
 - Respawn players after falling
 - Respawn flag after falling
 - Knock flag out of player hands with shot
-- 
+- host/server is the only one tracking game stats so send msgs to update all ui
 - Call an rpc on onclientconnect - use firas' github for this
 
 - TIMER

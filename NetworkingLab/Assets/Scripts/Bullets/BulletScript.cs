@@ -4,13 +4,21 @@ using UnityEngine;
 
 public class BulletScript : MonoBehaviour 
 {
+	public float bulletForce = 5.0f;
 
 	void OnCollisionEnter(Collision col)
 	{
 		if(col.gameObject.tag == "Player")
 		{
+			NetworkPlayer nPlayer = col.gameObject.GetComponent<NetworkPlayer> ();
 			Rigidbody colRB = col.gameObject.GetComponent<Rigidbody> ();
-			colRB.AddForce (new Vector3 (0.0f, 15.0f, 0.0f), ForceMode.VelocityChange);
+			colRB.AddForce (colRB.transform.up * bulletForce, ForceMode.VelocityChange);
+			//colRB.AddForce (-colRB.transform.forward * bulletForce, ForceMode.VelocityChange);
+			if(nPlayer.hasFlag)
+			{
+				nPlayer.DropFlag ();
+			}
+				
 			Destroy (this.gameObject);
 		}
 	}
