@@ -65,6 +65,8 @@ public class NetworkPlayer : NetworkMessageHandler
 	private float timeStamp;
 	private Rigidbody rb = null;
 
+
+	/* ~~~~ Player ~~~~ */
 	public override void OnStartLocalPlayer()
 	{
 		base.OnStartLocalPlayer();
@@ -72,7 +74,7 @@ public class NetworkPlayer : NetworkMessageHandler
 		CmdUpdatePlayers ();
 		if(!isServer)
 			CmdGetGameTime ();
-		isGameStarted = true; 
+		isGameStarted = true;
 		GetComponent<MeshRenderer>().material.color = new Color(0.0f, 1.0f, 0.0f);
 	}
 
@@ -107,12 +109,326 @@ public class NetworkPlayer : NetworkMessageHandler
 		}
 
 	}
+		
+	private void Update()
+	{
+		if(isLocalPlayer && isGameStarted)
+		{
+			GameTimerUpdate ();
+			if(isFuelPowerUp)
+			{
+				StartCoroutine (FuelPowerUp());
+			}
 
+			if(isSpeedPowerUp)
+			{
+				StartCoroutine (SpeedPowerUp());
+			}
+
+			UpdatePlayerMovement();
+
+			//if(!isServer)
+			//{
+				CmdJump ();		
+			//}
+			//else
+			//{
+			//	RpcJump ();
+			//}
+			Shoot ();
+			RechargeJetPack ();
+			fuelSlider.value = playerFuel;
+
+			if(hasFlag)
+			{
+				possessionTime += Time.deltaTime;
+			}
+
+			if(Input.GetKeyDown(KeyCode.F))
+			{
+				DropFlag ();
+			}
+
+			Vector3 mPos = Input.mousePosition;
+
+			if(mPos.x > Screen.width / 2.0f && isFacingLeft)
+			{
+				isFacingLeft = false;
+				Quaternion newRot = new Quaternion (transform.rotation.x, -transform.rotation.y, transform.rotation.z, transform.rotation.w);
+				rb.rotation = newRot;
+			}
+			else if(mPos.x < Screen.width / 2.0f && !isFacingLeft)
+			{
+				isFacingLeft = true;
+				Quaternion newRot = new Quaternion (transform.rotation.x, -transform.rotation.y, transform.rotation.z, transform.rotation.w);
+				rb.rotation = newRot;
+			}
+
+		
+		}
+		else
+		{
+/*			if(rb.velocity.y > Mathf.Epsilon)
+			{
+				if(jetpackParticles.isStopped)
+				{
+					jetpackParticles.Play ();
+				}
+			}
+			else
+			{
+				jetpackParticles.Stop ();
+			}*/
+
+			return;
+		}
+	}
+
+	// Allows for frame rate not to handle lerp (could be imprecise)
+	private void FixedUpdate()
+	{
+		if(!isLocalPlayer)
+		{
+			NetworkLerp ();
+		}
+	}
+
+	private void UpdatePlayerMovement()
+	{
+		if(!isFacingLeft)
+		{
+			float forwardInput = Input.GetAxis ("Horizontal");
+
+			Vector3 forwardVector = this.transform.forward;
+			Vector3 linearVelocity = forwardVector * (forwardInput * linearSpeed);
+
+			float yVelocity = rb.velocity.y;
+			linearVelocity.y = yVelocity;
+			rb.velocity = linearVelocity;
+		}
+		else
+		{
+			float forwardInput = Input.GetAxis ("Horizontal");
+
+			Vector3 forwardVector = -this.transform.forward;
+			Vector3 linearVelocity = forwardVector * (forwardInput * linearSpeed);
+
+			float yVelocity = rb.velocity.y;
+			linearVelocity.y = yVelocity;
+			rb.velocity = linearVelocity;
+		}
+
+
+		if (!canSendNetworkMovement)
+		{
+			canSendNetworkMovement = true;
+			StartCoroutine(StartNetworkSendCooldown());
+		}
+	}
+
+/*	[RPC]
+	public void RpcJump()
+	{
+		CmdJump ();
+	}*/
+
+	//[Command]
+	public void CmdJump()
+	{
+		if(Input.GetKey(KeyCode.Space) && playerFuel > 5)
+		{
+			if(jetpackParticles.isStopped)
+			{
+				jetpackParticles.Play ();		
+			}
+			Vector3 jumpVelocity = Vector3.up * jetpackSpeed;
+			rb.velocity += jumpVelocity;
+			playerFuel -= 3;
+			timeStamp = Time.time + jetpackCoolDown;
+		}
+		else
+		{
+			jetpackParticles.Stop ();
+		}
+	}
+
+	public void Shoot()
+	{
+		if (Input.GetMouseButtonDown(0))
+		{
+			CmdFire();
+		}
+
+	}
+
+	[Command]
+	void CmdFire()
+	{
+		// Create the Bullet from the Bullet Prefab
+		var bullet = (GameObject)Instantiate (
+			bulletPrefab,
+			bulletSpawn.position,
+			bulletSpawn.rotation);
+
+		// Add velocity to the bullet
+		bullet.GetComponent<Rigidbody>().velocity = bullet.transform.forward * bulletSpeed;
+
+		// Spawn bullet
+		NetworkServer.Spawn(bullet);
+
+		// Destroy the bullet after 2 seconds
+		Destroy(bullet, 5.0f);
+	}
+		
+	public void DropFlag()		// TODO: This does not replicate properly!
+	{
+		if(hasFlag)
+		{
+			Debug.Log ("Dropped flag");
+			GameObject flag = GameObject.FindGameObjectWithTag ("Flag");
+			flag.transform.parent = null;
+
+			//flag.GetComponent<Rigidbody> ().isKinematic = false;
+			flag.transform.position += this.transform.position; //new Vector3 (0.0f, 10.0f, 0.0f);
+			flag.GetComponent<FlagScript> ().flagState = FlagScript.FlagState.Available;
+		}
+	}
+
+	void GameTimerUpdate()
+	{
+		if(gameTime > 0 && isGameStarted && !isGameOver)			//TODO sync this with everyone else
+		{
+			gameTime -= Time.deltaTime;
+			timeText.text = gameTime.ToString ("000");
+		}
+		else if (gameTime <= 0)
+		{
+			timeText.text = "000";
+			isGameOver = true;
+			//RpcEndGame ();
+		}
+	}
+		
+	public void RechargeJetPack()
+	{
+		if(playerFuel < 100 && Time.time > timeStamp + jetpackCoolDown)
+			playerFuel += 2;
+	}
+
+	private IEnumerator FuelPowerUp()			// TODO: use a text label to tell all players about this
+	{
+		//Debug.Log ("fuel powerup begins for: " + this.name);
+		this.jetpackCoolDown = 0.5f;
+		//fuelSlider.colors.normalColor = Color.blue;
+		yield return new WaitForSeconds (10.0f);
+		isFuelPowerUp = false;
+		this.jetpackCoolDown = 1.5f;
+		//fuelSlider.GetComponent<
+		//Debug.Log ("fuel powerup ends for: " + this.name);
+	}
+
+	private IEnumerator SpeedPowerUp()			// TODO: use a text label to tell all players about this
+	{
+		//Debug.Log ("speed powerup begins for: " + this.name);
+		this.linearSpeed = 20.0f;
+		yield return new WaitForSeconds (10.0f);
+		isSpeedPowerUp = false;
+		this.linearSpeed = 10.0f;
+		//Debug.Log ("speed powerup ends for: " + this.name);
+	}
+
+
+	/* ~~~~ Network ~~~~ */
+	[ClientRpc]
+	public void RpcEndGame()
+	{
+		//endGamePanel.SetActive (true);
+	}
+
+	// Ensures the movement is sent at appropriate times
+	private IEnumerator StartNetworkSendCooldown()
+	{
+		timeBetweenMovementStart = Time.time;
+		yield return new WaitForSeconds((1 / networkSendRate));
+		SendNetworkMovement();
+	}
+
+	[Command]
+	public void CmdGetGameTime()
+	{
+		SendGameTimeMessage ();
+	}
+
+	private void NetworkLerp()
+	{
+		if(isLerpingPos)
+		{
+			// Gets a percentage so that lerp is properly used through timesteps
+			float lerpPercent = (Time.time - timeStartedLerp) / timeToLerp;
+
+			transform.position = Vector3.Lerp (lastRealPos, realPos, lerpPercent);
+
+			if(lerpPercent >= 1.0f)
+			{
+				isLerpingPos = false;
+			}
+		}
+
+		if(isLerpingRot)
+		{
+			float lerpPercent = (Time.time - timeStartedLerp) / timeToLerp;
+
+			transform.rotation = Quaternion.Lerp (lastRealRot, realRot, lerpPercent);
+
+			if(lerpPercent >= 1.0f)
+			{
+				isLerpingRot = false;
+			}
+		}
+	}
+		
 	private void RegisterNetworkMessages()
 	{
 		NetworkManager.singleton.client.RegisterHandler(movement_msg, OnReceiveMovementMessage);
 		NetworkManager.singleton.client.RegisterHandler(flagPos_msg, OnReceiveFlagMovementMessage);
 		NetworkManager.singleton.client.RegisterHandler(gameTime_msg, OnReceiveGameTimeMessage);
+	}
+
+	// Ensures the exact time taken to send the message lines up precisely with the player
+	private void SendNetworkMovement()
+	{
+		timeBetweenMovementEnd = Time.time;
+		SendMovementMessage(playerID, transform.position, transform.rotation, (timeBetweenMovementEnd - timeBetweenMovementStart));
+		canSendNetworkMovement = false;
+	}
+
+	// Sends the transform and time through to the clients
+	public void SendMovementMessage(string _playerID, Vector3 _position, Quaternion _rotation, float _timeTolerp)
+	{
+		PlayerMovementMessage _msg = new PlayerMovementMessage()
+		{
+			objectPosition = _position,
+			objectRotation = _rotation,
+			objectTransformName = _playerID,
+			time = _timeTolerp
+		};
+
+		NetworkManager.singleton.client.Send(movement_msg, _msg);
+	}
+
+	public void SendGameTimeMessage()
+	{
+		if(isServer)
+		{
+			HostGameTimeMessage _msg = new HostGameTimeMessage()
+			{
+				playerName = playerID,
+				currentGameTime = gameTime
+			};
+
+			//NetworkManager.singleton.client.Send(movement_msg, _msg);
+			NetworkServer.SendToAll(gameTime_msg, _msg);
+		}
 	}
 
 	private void OnReceiveMovementMessage(NetworkMessage _message)
@@ -210,314 +526,5 @@ public class NetworkPlayer : NetworkMessageHandler
 		}
 
 		timeStartedLerp = Time.time;
-	}
-
-	private void Update()
-	{
-		if(isLocalPlayer && isGameStarted)
-		{
-			GameTimerUpdate ();
-			if(isFuelPowerUp)
-			{
-				StartCoroutine (FuelPowerUp());
-			}
-
-			if(isSpeedPowerUp)
-			{
-				StartCoroutine (SpeedPowerUp());
-			}
-
-			UpdatePlayerMovement();
-
-			//if(!isServer)
-			//{
-				CmdJump ();		
-			//}
-			//else
-			//{
-			//	RpcJump ();
-			//}
-			Shoot ();
-			RechargeJetPack ();
-			fuelSlider.value = playerFuel;
-
-			if(hasFlag)
-			{
-				possessionTime += Time.deltaTime;
-			}
-
-			if(Input.GetKeyDown(KeyCode.F))
-			{
-				DropFlag ();
-			}
-
-			Vector3 mPos = Input.mousePosition;
-
-			if(mPos.x > Screen.width / 2.0f && isFacingLeft)
-			{
-				isFacingLeft = false;
-				Quaternion newRot = new Quaternion (transform.rotation.x, -transform.rotation.y, transform.rotation.z, transform.rotation.w);
-				rb.rotation = newRot;
-			}
-			else if(mPos.x < Screen.width / 2.0f && !isFacingLeft)
-			{
-				isFacingLeft = true;
-				Quaternion newRot = new Quaternion (transform.rotation.x, -transform.rotation.y, transform.rotation.z, transform.rotation.w);
-				rb.rotation = newRot;
-			}
-
-		
-		}
-		else
-		{
-/*			if(rb.velocity.y > Mathf.Epsilon)
-			{
-				if(jetpackParticles.isStopped)
-				{
-					jetpackParticles.Play ();
-				}
-			}
-			else
-			{
-				jetpackParticles.Stop ();
-			}*/
-
-			return;
-		}
-	}
-
-	private void UpdatePlayerMovement()
-	{
-		if(!isFacingLeft)
-		{
-			float forwardInput = Input.GetAxis ("Horizontal");
-
-			Vector3 forwardVector = this.transform.forward;
-			Vector3 linearVelocity = forwardVector * (forwardInput * linearSpeed);
-
-			float yVelocity = rb.velocity.y;
-			linearVelocity.y = yVelocity;
-			rb.velocity = linearVelocity;
-		}
-		else
-		{
-			float forwardInput = Input.GetAxis ("Horizontal");
-
-			Vector3 forwardVector = -this.transform.forward;
-			Vector3 linearVelocity = forwardVector * (forwardInput * linearSpeed);
-
-			float yVelocity = rb.velocity.y;
-			linearVelocity.y = yVelocity;
-			rb.velocity = linearVelocity;
-		}
-
-
-		if (!canSendNetworkMovement)
-		{
-			canSendNetworkMovement = true;
-			StartCoroutine(StartNetworkSendCooldown());
-		}
-	}
-
-/*	[RPC]
-	public void RpcJump()
-	{
-		CmdJump ();
-	}*/
-
-	//[Command]
-	public void CmdJump()
-	{
-		if(Input.GetKey(KeyCode.Space) && playerFuel > 5)
-		{
-			if(jetpackParticles.isStopped)
-			{
-				jetpackParticles.Play ();		
-			}
-			Vector3 jumpVelocity = Vector3.up * jetpackSpeed;
-			rb.velocity += jumpVelocity;
-			playerFuel -= 3;
-			timeStamp = Time.time + jetpackCoolDown;
-		}
-		else
-		{
-			jetpackParticles.Stop ();
-		}
-	}
-
-	public void Shoot()
-	{
-		if (Input.GetMouseButtonDown(0))
-		{
-			CmdFire();
-		}
-
-	}
-
-	[Command]
-	void CmdFire()
-	{
-		// Create the Bullet from the Bullet Prefab
-		var bullet = (GameObject)Instantiate (
-			bulletPrefab,
-			bulletSpawn.position,
-			bulletSpawn.rotation);
-
-		// Add velocity to the bullet
-		bullet.GetComponent<Rigidbody>().velocity = bullet.transform.forward * bulletSpeed;
-
-		// Spawn bullet
-		NetworkServer.Spawn(bullet);
-
-		// Destroy the bullet after 2 seconds
-		Destroy(bullet, 5.0f);
-	}
-
-
-	public void DropFlag()		// TODO: This does not replicate properly!
-	{
-		if(hasFlag)
-		{
-			Debug.Log ("Dropped flag");
-			GameObject flag = GameObject.FindGameObjectWithTag ("Flag");
-			flag.transform.parent = null;
-
-			//flag.GetComponent<Rigidbody> ().isKinematic = false;
-			flag.transform.position += this.transform.position; //new Vector3 (0.0f, 10.0f, 0.0f);
-			flag.GetComponent<FlagScript> ().flagState = FlagScript.FlagState.Available;
-		}
-	}
-
-	void GameTimerUpdate()
-	{
-		if(gameTime > 0 && isGameStarted && !isGameOver)			//TODO sync this with everyone else
-		{
-			gameTime -= Time.deltaTime;
-			timeText.text = gameTime.ToString ("000");
-		}
-		else if (gameTime <= 0)
-		{
-			timeText.text = "000";
-			isGameOver = true;
-			//RpcEndGame ();
-		}
-	}
-
-	[ClientRpc]
-	public void RpcEndGame()
-	{
-		//endGamePanel.SetActive (true);
-	}
-
-	public void RechargeJetPack()
-	{
-		if(playerFuel < 100 && Time.time > timeStamp + jetpackCoolDown)
-			playerFuel += 2;
-	}
-
-	private IEnumerator FuelPowerUp()			// TODO: use a text label to tell all players about this
-	{
-		//Debug.Log ("fuel powerup begins for: " + this.name);
-		this.jetpackCoolDown = 0.5f;
-		//fuelSlider.colors.normalColor = Color.blue;
-		yield return new WaitForSeconds (10.0f);
-		isFuelPowerUp = false;
-		this.jetpackCoolDown = 1.5f;
-		//fuelSlider.GetComponent<
-		//Debug.Log ("fuel powerup ends for: " + this.name);
-	}
-
-	private IEnumerator SpeedPowerUp()			// TODO: use a text label to tell all players about this
-	{
-		//Debug.Log ("speed powerup begins for: " + this.name);
-		this.linearSpeed = 20.0f;
-		yield return new WaitForSeconds (10.0f);
-		isSpeedPowerUp = false;
-		this.linearSpeed = 10.0f;
-		//Debug.Log ("speed powerup ends for: " + this.name);
-	}
-
-	// Ensures the movement is sent at appropriate times
-	private IEnumerator StartNetworkSendCooldown()
-	{
-		timeBetweenMovementStart = Time.time;
-		yield return new WaitForSeconds((1 / networkSendRate));
-		SendNetworkMovement();
-	}
-
-	// Ensures the exact time taken to send the message lines up precisely with the player
-	private void SendNetworkMovement()
-	{
-		timeBetweenMovementEnd = Time.time;
-		SendMovementMessage(playerID, transform.position, transform.rotation, (timeBetweenMovementEnd - timeBetweenMovementStart));
-		canSendNetworkMovement = false;
-	}
-
-	// Sends the transform and time through to the clients
-	public void SendMovementMessage(string _playerID, Vector3 _position, Quaternion _rotation, float _timeTolerp)
-	{
-		PlayerMovementMessage _msg = new PlayerMovementMessage()
-		{
-			objectPosition = _position,
-			objectRotation = _rotation,
-			objectTransformName = _playerID,
-			time = _timeTolerp
-		};
-
-		NetworkManager.singleton.client.Send(movement_msg, _msg);
-	}
-
-	[Command]
-	public void CmdGetGameTime()
-	{
-		if(isServer)
-		{
-			HostGameTimeMessage _msg = new HostGameTimeMessage()
-			{
-				playerName = playerID,
-				currentGameTime = gameTime
-			};
-
-			//NetworkManager.singleton.client.Send(movement_msg, _msg);
-			NetworkServer.SendToAll(gameTime_msg, _msg);
-		}
-
-	}
-
-	// Allows for frame rate not to handle lerp (could be imprecise)
-	private void FixedUpdate()
-	{
-		if(!isLocalPlayer)
-		{
-			NetworkLerp ();
-		}
-	}
-
-	private void NetworkLerp()
-	{
-		if(isLerpingPos)
-		{
-			// Gets a percentage so that lerp is properly used through timesteps
-			float lerpPercent = (Time.time - timeStartedLerp) / timeToLerp;
-
-			transform.position = Vector3.Lerp (lastRealPos, realPos, lerpPercent);
-
-			if(lerpPercent >= 1.0f)
-			{
-				isLerpingPos = false;
-			}
-		}
-
-		if(isLerpingRot)
-		{
-			float lerpPercent = (Time.time - timeStartedLerp) / timeToLerp;
-
-			transform.rotation = Quaternion.Lerp (lastRealRot, realRot, lerpPercent);
-
-			if(lerpPercent >= 1.0f)
-			{
-				isLerpingRot = false;
-			}
-		}
 	}
 }
