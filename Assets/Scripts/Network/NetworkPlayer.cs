@@ -11,7 +11,7 @@ public class NetworkPlayer : NetworkMessageHandler
 	[Header("Player Properties")]
 	public string playerID;
 	public string playerName;
-	public float possessionTime;
+	public float possessionTime = 0.0f;
 	public int playerFuel = 100;
 	public int maxPlayerFuel = 100;
 	public float jetpackSpeed = 1.5f;
@@ -23,6 +23,7 @@ public class NetworkPlayer : NetworkMessageHandler
 	public bool isSpeedPowerUp = false;
 	public Camera cam;
 	public bool isFacingLeft = true;
+	public GameManager gManager;
 
 	[Header("Bullet Properties")]
 	public GameObject bulletPrefab;
@@ -53,6 +54,13 @@ public class NetworkPlayer : NetworkMessageHandler
 	[Header("Flag Properties")]
 	public bool hasFlag;
 
+	[Header("Game Time")]
+	public Text timeText;
+	public float gameTime = 360.0f;
+	//[SyncVar]
+	public bool isGameStarted = false;			//TODO stop players from moving til this is thrown
+	[SyncVar]
+	public bool isGameOver = false;
 
 	private float timeStamp;
 	private Rigidbody rb = null;
@@ -60,19 +68,25 @@ public class NetworkPlayer : NetworkMessageHandler
 	public override void OnStartLocalPlayer()
 	{
 		base.OnStartLocalPlayer();
+		//gManager = FindObjectOfType<GameManager> ();
+		CmdUpdatePlayers ();
+		if(!isServer)
+			CmdGetGameTime ();
+		isGameStarted = true; 
 		GetComponent<MeshRenderer>().material.color = new Color(0.0f, 1.0f, 0.0f);
 	}
 
 	private void Start()
 	{
+		timeText = GameObject.FindGameObjectWithTag("timerText").GetComponent<Text>();
 		playerID = "player" + GetComponent<NetworkIdentity>().netId.ToString();
 		transform.name = playerID;
 		Manager.Instance.AddPlayerToConnectedPlayers(playerID, gameObject);
-
+		gManager = FindObjectOfType<GameManager> ();
 		jetpackParticles = GetComponentInChildren<ParticleSystem> ();
 		rb = GetComponent<Rigidbody> ();
 		cam = FindObjectOfType<Camera> ();
-
+		timeText.text = gameTime.ToString ("000");
 		fuelSlider = GameObject.FindGameObjectWithTag ("fuelSlider").GetComponent<Slider>();
 		fuelSlider.value = playerFuel;
 
@@ -98,6 +112,7 @@ public class NetworkPlayer : NetworkMessageHandler
 	{
 		NetworkManager.singleton.client.RegisterHandler(movement_msg, OnReceiveMovementMessage);
 		NetworkManager.singleton.client.RegisterHandler(flagPos_msg, OnReceiveFlagMovementMessage);
+		NetworkManager.singleton.client.RegisterHandler(gameTime_msg, OnReceiveGameTimeMessage);
 	}
 
 	private void OnReceiveMovementMessage(NetworkMessage _message)
@@ -118,6 +133,29 @@ public class NetworkPlayer : NetworkMessageHandler
 		{
 			Manager.Instance.ConnectedPlayers [_msg.flagOwnerName].GetComponent<NetworkPlayer> ().ReceiveFlagMovementMessage (_msg.flagPosition, _msg.flagRotation, _msg.time);
 		}
+	}
+
+	private void OnReceiveGameTimeMessage(NetworkMessage _message)
+	{
+		HostGameTimeMessage _msg = _message.ReadMessage<HostGameTimeMessage>();
+
+		if (_msg.playerName != transform.name) 
+		{
+			Manager.Instance.ConnectedPlayers [_msg.playerName].GetComponent<NetworkPlayer> ().ReceiveGameTimeMessage (_msg.playerName, _msg.currentGameTime);
+		}
+	}
+
+	[Command]
+	public void CmdUpdatePlayers()
+	{
+		GameManager.numPlayers++;
+		Debug.Log (GameManager.numPlayers.ToString ());
+	}
+
+	public void ReceiveGameTimeMessage(string _name, float _gameTime)
+	{
+		this.isGameStarted = true;
+		gameTime = _gameTime;
 	}
 
 	// Set positions, if positions are not equal, start lerping
@@ -176,8 +214,9 @@ public class NetworkPlayer : NetworkMessageHandler
 
 	private void Update()
 	{
-		if(isLocalPlayer)
+		if(isLocalPlayer && isGameStarted)
 		{
+			GameTimerUpdate ();
 			if(isFuelPowerUp)
 			{
 				StartCoroutine (FuelPowerUp());
@@ -201,6 +240,11 @@ public class NetworkPlayer : NetworkMessageHandler
 			Shoot ();
 			RechargeJetPack ();
 			fuelSlider.value = playerFuel;
+
+			if(hasFlag)
+			{
+				possessionTime += Time.deltaTime;
+			}
 
 			if(Input.GetKeyDown(KeyCode.F))
 			{
@@ -339,9 +383,30 @@ public class NetworkPlayer : NetworkMessageHandler
 			flag.transform.parent = null;
 
 			//flag.GetComponent<Rigidbody> ().isKinematic = false;
-			flag.transform.position += new Vector3 (0.0f, 10.0f, 0.0f);
+			flag.transform.position += this.transform.position; //new Vector3 (0.0f, 10.0f, 0.0f);
 			flag.GetComponent<FlagScript> ().flagState = FlagScript.FlagState.Available;
 		}
+	}
+
+	void GameTimerUpdate()
+	{
+		if(gameTime > 0 && isGameStarted && !isGameOver)			//TODO sync this with everyone else
+		{
+			gameTime -= Time.deltaTime;
+			timeText.text = gameTime.ToString ("000");
+		}
+		else if (gameTime <= 0)
+		{
+			timeText.text = "000";
+			isGameOver = true;
+			//RpcEndGame ();
+		}
+	}
+
+	[ClientRpc]
+	public void RpcEndGame()
+	{
+		//endGamePanel.SetActive (true);
 	}
 
 	public void RechargeJetPack()
@@ -400,6 +465,23 @@ public class NetworkPlayer : NetworkMessageHandler
 		};
 
 		NetworkManager.singleton.client.Send(movement_msg, _msg);
+	}
+
+	[Command]
+	public void CmdGetGameTime()
+	{
+		if(isServer)
+		{
+			HostGameTimeMessage _msg = new HostGameTimeMessage()
+			{
+				playerName = playerID,
+				currentGameTime = gameTime
+			};
+
+			//NetworkManager.singleton.client.Send(movement_msg, _msg);
+			NetworkServer.SendToAll(gameTime_msg, _msg);
+		}
+
 	}
 
 	// Allows for frame rate not to handle lerp (could be imprecise)

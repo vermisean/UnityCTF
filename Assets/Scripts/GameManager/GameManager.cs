@@ -3,9 +3,16 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Networking;
 using UnityEngine.UI;
+using PlayerManager;
 
 public class GameManager : NetworkBehaviour 
 {
+	[Header("Game Properties")]
+	//[SyncVar]
+	public static int numPlayers;
+	public int maxPlayers = 2;
+	public GameObject endGamePanel;
+
 	[Header("Powerup Properties")]
 	public Transform[] powerupSpawns;
 	public static int numPowerups = 0;
@@ -20,11 +27,14 @@ public class GameManager : NetworkBehaviour
 	public Transform flagSpawn;
 	public bool isSpawningFlag;
 
-	[Header("Game Time")]
+/*	[Header("Game Time")]
 	public Text timeText;
+	[SyncVar]
 	public float gameTime = 360.0f;
-	public bool isGameStarted = false;			//TODO stop players from moving til this is thrown
-	public bool isGameOver = false;
+	//[SyncVar]
+	public static bool isGameStarted = false;			//TODO stop players from moving til this is thrown
+	[SyncVar]
+	public bool isGameOver = false;*/
 
 	public override void OnStartServer()
 	{
@@ -40,10 +50,12 @@ public class GameManager : NetworkBehaviour
 		SpawnFlag ();
 	}
 
+	//public override void On
+
 	void Start()
 	{
-		timeText.text = gameTime.ToString ("000");
-		isGameStarted = true;
+		//timeText.text = gameTime.ToString ("000");
+		//isGameStarted = true;
 	}
 
 	void Update()
@@ -53,6 +65,23 @@ public class GameManager : NetworkBehaviour
 			CheckForPowerups ();
 		}
 
+		//GameTimerUpdate ();
+
+		//if(!isGameStarted && !isGameOver)
+		//{
+		//	RpcStartGame ();
+		//}
+	}
+
+	[ClientRpc]
+	public void RpcStartGame()
+	{
+		Debug.Log ("Game starting!");
+		//isGameStarted = true;
+	}
+
+/*	void GameTimerUpdate()
+	{
 		if(gameTime > 0 && isGameStarted && !isGameOver)			//TODO sync this with everyone else
 		{
 			gameTime -= Time.deltaTime;
@@ -62,6 +91,30 @@ public class GameManager : NetworkBehaviour
 		{
 			timeText.text = "000";
 			isGameOver = true;
+			RpcEndGame ();
+		}
+	}
+
+	[ClientRpc]
+	public void RpcEndGame()
+	{
+		endGamePanel.SetActive (true);
+	}*/
+
+/*	public override void OnServerConnect(NetworkConnection conn)
+	{
+		if (conn.connectionId != 0) 
+		{
+			//Gameti
+			//conn.Send()
+		}
+	}*/
+
+	public void SendGameTimeToPlayers()
+	{
+		if(isServer)
+		{
+			
 		}
 	}
 
