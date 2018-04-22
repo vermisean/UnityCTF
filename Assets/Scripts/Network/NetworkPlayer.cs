@@ -21,9 +21,21 @@ public class NetworkPlayer : NetworkMessageHandler
 	public bool isThrusting = false;
 	public bool isFuelPowerUp = false;
 	public bool isSpeedPowerUp = false;
-	public Camera cam;
-	public bool isFacingLeft = true;
-	public GameManager gManager;
+	private bool isFacingLeft = true;
+	private GameObject[] spawnPoints;
+	private Text respawnText;
+	private bool isRespawning;
+	private bool respawnStarted;
+	private float respawnTime = 2.5f;
+	private float respawnTimeForPlayer = 2.5f;
+	private string winner;
+	private Text winnerText;
+	private Text endGamePanel;
+
+	[Header("Score Properties")]
+	public Text topPlayerText;
+	public Text secondPlayerText;
+	public Dictionary<string, float> playerScoreList;
 
 	[Header("Bullet Properties")]
 	public GameObject bulletPrefab;
@@ -53,11 +65,11 @@ public class NetworkPlayer : NetworkMessageHandler
 
 	[Header("Flag Properties")]
 	public bool hasFlag;
+	public GameObject flagSpawn;
 
 	[Header("Game Time")]
 	public Text timeText;
-	public float gameTime = 360.0f;
-	//[SyncVar]
+	public float gameTime = 120.0f;
 	public bool isGameStarted = false;			//TODO stop players from moving til this is thrown
 	[SyncVar]
 	public bool isGameOver = false;
@@ -80,17 +92,32 @@ public class NetworkPlayer : NetworkMessageHandler
 
 	private void Start()
 	{
-		timeText = GameObject.FindGameObjectWithTag("timerText").GetComponent<Text>();
+		// Basic variable init
+		Manager.Instance.AddPlayerToConnectedPlayers(playerID, gameObject);
 		playerID = "player" + GetComponent<NetworkIdentity>().netId.ToString();
 		transform.name = playerID;
-		Manager.Instance.AddPlayerToConnectedPlayers(playerID, gameObject);
-		gManager = FindObjectOfType<GameManager> ();
+		winner = "";
+		isRespawning = false;
 		jetpackParticles = GetComponentInChildren<ParticleSystem> ();
 		rb = GetComponent<Rigidbody> ();
-		cam = FindObjectOfType<Camera> ();
-		timeText.text = gameTime.ToString ("000");
+
+		// Spawns
+		flagSpawn = GameObject.FindGameObjectWithTag ("FlagSpawn");
 		fuelSlider = GameObject.FindGameObjectWithTag ("fuelSlider").GetComponent<Slider>();
 		fuelSlider.value = playerFuel;
+		spawnPoints = GameObject.FindGameObjectsWithTag ("SpawnPoints");
+
+		// Text
+		topPlayerText = GameObject.FindGameObjectWithTag("topPlayerText").GetComponent<Text>();
+		topPlayerText.text = "";
+		endGamePanel = GameObject.FindGameObjectWithTag ("endgamePanel").GetComponent<Text>();
+		endGamePanel.text = "";
+		respawnText = GameObject.FindGameObjectWithTag("respawnText").GetComponent<Text>();
+		respawnText.text = "";
+		timeText = GameObject.FindGameObjectWithTag("timerText").GetComponent<Text>();
+		timeText.text = gameTime.ToString ("000");
+
+		playerScoreList = new Dictionary<string, float>();
 
 		if (isLocalPlayer)
 		{
@@ -112,7 +139,22 @@ public class NetworkPlayer : NetworkMessageHandler
 		
 	private void Update()
 	{
-		if(isLocalPlayer && isGameStarted)
+		if(isLocalPlayer && isRespawning)
+		{
+			if(respawnTimeForPlayer > 0 && !isGameOver)
+			{
+				respawnTimeForPlayer -= Time.deltaTime;
+				respawnText.text = respawnTimeForPlayer.ToString ("0.0");
+			}
+			else if (respawnTimeForPlayer <= 0)
+			{
+				respawnText.text = "";
+				isRespawning = false;
+				respawnTimeForPlayer = 2.5f;
+			}
+		}
+
+		if(isLocalPlayer) //&& isGameStarted)
 		{
 			GameTimerUpdate ();
 			if(isFuelPowerUp)
@@ -126,16 +168,10 @@ public class NetworkPlayer : NetworkMessageHandler
 			}
 
 			UpdatePlayerMovement();
+			CmdJump ();		
 
-			//if(!isServer)
-			//{
-				CmdJump ();		
-			//}
-			//else
-			//{
-			//	RpcJump ();
-			//}
 			Shoot ();
+
 			RechargeJetPack ();
 			fuelSlider.value = playerFuel;
 
@@ -168,7 +204,7 @@ public class NetworkPlayer : NetworkMessageHandler
 		}
 		else
 		{
-/*			if(rb.velocity.y > Mathf.Epsilon)
+			if(rb.velocity.y > Mathf.Epsilon)
 			{
 				if(jetpackParticles.isStopped)
 				{
@@ -178,7 +214,7 @@ public class NetworkPlayer : NetworkMessageHandler
 			else
 			{
 				jetpackParticles.Stop ();
-			}*/
+			}
 
 			return;
 		}
@@ -225,14 +261,7 @@ public class NetworkPlayer : NetworkMessageHandler
 			StartCoroutine(StartNetworkSendCooldown());
 		}
 	}
-
-/*	[RPC]
-	public void RpcJump()
-	{
-		CmdJump ();
-	}*/
-
-	//[Command]
+		
 	public void CmdJump()
 	{
 		if(Input.GetKey(KeyCode.Space) && playerFuel > 5)
@@ -280,31 +309,36 @@ public class NetworkPlayer : NetworkMessageHandler
 		Destroy(bullet, 5.0f);
 	}
 		
-	public void DropFlag()		// TODO: This does not replicate properly!
+	public void DropFlag()
 	{
 		if(hasFlag)
 		{
 			Debug.Log ("Dropped flag");
 			GameObject flag = GameObject.FindGameObjectWithTag ("Flag");
 			flag.transform.parent = null;
-
+			SendFlagLostMessage (this.playerID, this.possessionTime);
 			//flag.GetComponent<Rigidbody> ().isKinematic = false;
-			flag.transform.position += this.transform.position; //new Vector3 (0.0f, 10.0f, 0.0f);
+			flag.transform.position = flagSpawn.transform.position;
 			flag.GetComponent<FlagScript> ().flagState = FlagScript.FlagState.Available;
 		}
 	}
 
 	void GameTimerUpdate()
 	{
-		if(gameTime > 0 && isGameStarted && !isGameOver)			//TODO sync this with everyone else
+		if(gameTime > 0 && isGameStarted && !isGameOver)
 		{
 			gameTime -= Time.deltaTime;
 			timeText.text = gameTime.ToString ("000");
 		}
-		else if (gameTime <= 0)
+		else if (gameTime <= 0 && isGameStarted)
 		{
 			timeText.text = "000";
 			isGameOver = true;
+			endGamePanel.gameObject.SetActive (false);
+			//endGamePanel.SetActive (true);
+			winnerText = GameObject.FindGameObjectWithTag("winnerText").GetComponent<Text>();
+			winnerText.text = winner;
+			endGamePanel.text = "WINNER, WINNER,\nTURKEY DINNER!";
 			//RpcEndGame ();
 		}
 	}
@@ -315,28 +349,54 @@ public class NetworkPlayer : NetworkMessageHandler
 			playerFuel += 2;
 	}
 
-	private IEnumerator FuelPowerUp()			// TODO: use a text label to tell all players about this
+	private IEnumerator FuelPowerUp()			// TODO: could use a text label to tell all players about this
 	{
-		//Debug.Log ("fuel powerup begins for: " + this.name);
-		this.jetpackCoolDown = 0.5f;
-		//fuelSlider.colors.normalColor = Color.blue;
+		this.jetpackCoolDown = 0.5f; 
 		yield return new WaitForSeconds (10.0f);
 		isFuelPowerUp = false;
 		this.jetpackCoolDown = 1.5f;
-		//fuelSlider.GetComponent<
-		//Debug.Log ("fuel powerup ends for: " + this.name);
+
 	}
 
-	private IEnumerator SpeedPowerUp()			// TODO: use a text label to tell all players about this
+	private IEnumerator SpeedPowerUp()			// TODO: could use a text label to tell all players about this
 	{
-		//Debug.Log ("speed powerup begins for: " + this.name);
 		this.linearSpeed = 20.0f;
 		yield return new WaitForSeconds (10.0f);
 		isSpeedPowerUp = false;
 		this.linearSpeed = 10.0f;
-		//Debug.Log ("speed powerup ends for: " + this.name);
 	}
 
+	public void RespawnPlayer()
+	{
+		int randomSpawnLocation = (int)Random.Range (0, spawnPoints.Length);
+		this.transform.position = spawnPoints [randomSpawnLocation].transform.position;
+	}
+
+	void OnTriggerEnter(Collider col)
+	{
+		if(col.gameObject.tag == "Respawn")
+		{
+			if(isLocalPlayer && !isRespawning)
+			{
+				isRespawning = true;
+				respawnStarted = true;
+				if(respawnStarted)
+				{
+					respawnStarted = false;
+					respawnText.text = respawnTime.ToString ();
+					Debug.Log ("Respawning: Player " + this.playerID.ToString());
+					StartCoroutine ("RespawnPlayerCountDown");
+				}
+			}
+		}
+	}
+
+	public IEnumerator RespawnPlayerCountDown()
+	{
+		yield return new WaitForSeconds (respawnTime);
+		RespawnPlayer ();
+	}
+		
 
 	/* ~~~~ Network ~~~~ */
 	[ClientRpc]
@@ -392,6 +452,7 @@ public class NetworkPlayer : NetworkMessageHandler
 		NetworkManager.singleton.client.RegisterHandler(movement_msg, OnReceiveMovementMessage);
 		NetworkManager.singleton.client.RegisterHandler(flagPos_msg, OnReceiveFlagMovementMessage);
 		NetworkManager.singleton.client.RegisterHandler(gameTime_msg, OnReceiveGameTimeMessage);
+		NetworkManager.singleton.client.RegisterHandler(flagLost_msg, OnReceiveFlagLostMessage);
 	}
 
 	// Ensures the exact time taken to send the message lines up precisely with the player
@@ -400,6 +461,17 @@ public class NetworkPlayer : NetworkMessageHandler
 		timeBetweenMovementEnd = Time.time;
 		SendMovementMessage(playerID, transform.position, transform.rotation, (timeBetweenMovementEnd - timeBetweenMovementStart));
 		canSendNetworkMovement = false;
+	}
+
+	public void SendFlagLostMessage(string _playerID, float timePossessed)
+	{
+		PlayerLostFlagMessage _msg = new PlayerLostFlagMessage () 
+		{
+			playerID = this.playerID,
+			possessionTime = timePossessed
+		};
+
+		NetworkManager.singleton.client.Send (flagLost_msg, _msg);
 	}
 
 	// Sends the transform and time through to the clients
@@ -422,11 +494,8 @@ public class NetworkPlayer : NetworkMessageHandler
 		{
 			HostGameTimeMessage _msg = new HostGameTimeMessage()
 			{
-				playerName = playerID,
 				currentGameTime = gameTime
 			};
-
-			//NetworkManager.singleton.client.Send(movement_msg, _msg);
 			NetworkServer.SendToAll(gameTime_msg, _msg);
 		}
 	}
@@ -455,23 +524,27 @@ public class NetworkPlayer : NetworkMessageHandler
 	{
 		HostGameTimeMessage _msg = _message.ReadMessage<HostGameTimeMessage>();
 
-		if (_msg.playerName != transform.name) 
-		{
-			Manager.Instance.ConnectedPlayers [_msg.playerName].GetComponent<NetworkPlayer> ().ReceiveGameTimeMessage (_msg.playerName, _msg.currentGameTime);
-		}
+		GetComponent<NetworkPlayer> ().ReceiveGameTimeMessage (_msg.currentGameTime);
+	}
+
+	private void OnReceiveFlagLostMessage(NetworkMessage _message)
+	{
+		PlayerLostFlagMessage _msg = _message.ReadMessage<PlayerLostFlagMessage> ();
+
+		GetComponent<NetworkPlayer> ().ReceiveFlagLostMessage (_msg.playerID, _msg.possessionTime);
 	}
 
 	[Command]
 	public void CmdUpdatePlayers()
 	{
 		GameManager.numPlayers++;
-		Debug.Log (GameManager.numPlayers.ToString ());
+		//Debug.Log (GameManager.numPlayers.ToString ());
 	}
 
-	public void ReceiveGameTimeMessage(string _name, float _gameTime)
+	public void ReceiveGameTimeMessage(float _gameTime)
 	{
 		this.isGameStarted = true;
-		gameTime = _gameTime;
+		this.gameTime = _gameTime;
 	}
 
 	// Set positions, if positions are not equal, start lerping
@@ -526,5 +599,41 @@ public class NetworkPlayer : NetworkMessageHandler
 		}
 
 		timeStartedLerp = Time.time;
+	}
+
+	public void ReceiveFlagLostMessage(string _pId, float _time)
+	{
+		// this dictionary only needs to hold values if a player gets some points
+		if(playerScoreList.ContainsKey(_pId))	// if the dictionary contains playerID, we can add to its value in score
+		{
+			//float nonValue = 0.0f;
+			float currentVal = playerScoreList [_pId];
+			currentVal += _time;
+			playerScoreList.Remove (_pId);
+			playerScoreList.Add (_pId, currentVal);
+		}
+		else  									// add a new entry to the dictionary with the player and score
+		{
+			playerScoreList.Add (_pId, _time);
+		}
+			
+		float lastValue = 0.0f;
+		string topPlayer = "";
+		foreach(KeyValuePair<string, float> entry in playerScoreList)
+		{
+			float firstValue = entry.Value;
+			if (firstValue > lastValue) 
+			{
+				firstValue = lastValue;
+				topPlayer = entry.Key;
+				topPlayerText.text = topPlayer;
+				winner = topPlayer;
+
+				if(topPlayer == this.playerID)
+				{
+					topPlayerText.text = topPlayer + " (you)";
+				}
+			}
+		}
 	}
 }

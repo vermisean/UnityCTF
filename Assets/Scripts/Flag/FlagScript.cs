@@ -14,6 +14,7 @@ public class FlagScript : NetworkMessageHandler
 	[Header("Flag Properties")]
 	public string flagOwnerName;
 	public Transform startTransform;
+	public Transform flagSpawns;
 	[SyncVar]
 	public FlagState flagState;
 	public bool isTaken = false;

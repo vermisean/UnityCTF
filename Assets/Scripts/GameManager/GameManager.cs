@@ -109,15 +109,7 @@ public class GameManager : NetworkBehaviour
 			//conn.Send()
 		}
 	}*/
-
-	public void SendGameTimeToPlayers()
-	{
-		if(isServer)
-		{
-			
-		}
-	}
-
+		
 	void CheckForPowerups()
 	{
 		isSpawningPowerup = true;

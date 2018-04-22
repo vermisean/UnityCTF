@@ -18,9 +18,10 @@ public class NetworkServerRelay : NetworkMessageHandler
 	private void RegisterNetworkMessages()	
 	{
 		NetworkServer.RegisterHandler(movement_msg, OnReceivePlayerMovementMessage);
-		NetworkServer.RegisterHandler(flagPos_msg, OnReceivePlayerMovementMessage);
+		NetworkServer.RegisterHandler(flagPos_msg, OnReceiveFlagMovementMessage);
 		//NetworkServer.RegisterHandler(playerReady_msg, OnReceivePlayerMovementMessage);
-		NetworkServer.RegisterHandler(gameTime_msg, OnReceivePlayerMovementMessage);
+		NetworkServer.RegisterHandler(gameTime_msg, OnReceiveGameTimeMessage);
+		NetworkServer.RegisterHandler(flagLost_msg, OnReceivePlayerLostFlagMessage);
 	}
 
 	// Makes the player movement smooth, sends to all clients
@@ -44,10 +45,16 @@ public class NetworkServerRelay : NetworkMessageHandler
 		//NetworkServer.
 	}*/
 
-	// Gives the players the current time
+	// Gives all the players the current time
 	private void OnReceiveGameTimeMessage(NetworkMessage _message)
 	{
 		HostGameTimeMessage _msg = _message.ReadMessage<HostGameTimeMessage>();
 		NetworkServer.SendToAll(gameTime_msg, _msg);
+	}
+
+	private void OnReceivePlayerLostFlagMessage(NetworkMessage _message)
+	{
+		PlayerLostFlagMessage _msg = _message.ReadMessage<PlayerLostFlagMessage>();
+		NetworkServer.SendToAll(flagLost_msg, _msg);
 	}
 }
