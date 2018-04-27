@@ -6,6 +6,14 @@ TagManager:
   tags:
   - Flag
   - fuelSlider
+  - timerText
+  - FlagSpawn
+  - SpawnPoints
+  - respawnText
+  - topPlayerText
+  - secondPlaceText
+  - winnerText
+  - endgamePanel
   layers:
   - Default
   - TransparentFX
